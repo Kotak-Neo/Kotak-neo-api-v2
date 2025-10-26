@@ -1,0 +1,59 @@
+adxLength = input.int(14, "ADX Length")
+adxThreshold = input.float(20, "ADX Threshold")
+rsiLength = input.int(14, "RSI Length")
+rsiLow = input.float(37, "RSI Lower Bound")
+rsiHigh = input.float(45, "RSI Upper Bound")
+
+macdFast = input.int(12, "MACD Fast")
+macdSlow = input.int(26, "MACD Slow")
+macdSignal = input.int(9, "MACD Signal")
+
+emaShortLen = input.int(9, "EMA Short")
+emaLongLen = input.int(21, "EMA Long")
+
+supertrendFactor = input.float(3, "SuperTrend Factor")
+supertrendATR = input.int(10, "SuperTrend ATR Length")
+
+donchianLen = input.int(20, "Donchian Length")
+
+// === INDICATORS ===
+// ADX
+adx = ta.adx(adxLength)
+
+// RSI
+rsi = ta.rsi(close, rsiLength)
+
+// MACD
+[macdLine, signalLine, _] = ta.macd(close, macdFast, macdSlow, macdSignal)
+macdCrossUp = ta.crossover(macdLine, signalLine)
+macdCrossDown = ta.crossunder(macdLine, signalLine)
+
+// EMA crossover
+emaShort = ta.ema(close, emaShortLen)
+emaLong = ta.ema(close, emaLongLen)
+emaCrossUp = ta.crossover(emaShort, emaLong)
+emaCrossDown = ta.crossunder(emaShort, emaLong)
+
+// SuperTrend
+atr = ta.atr(supertrendATR)
+supertrendUpper = ta.highest(high, supertrendATR) - supertrendFactor * atr
+supertrendLower = ta.lowest(low, supertrendATR) + supertrendFactor * atr
+var float supertrend = na
+supertrend := close[1] > supertrend ? math.max(supertrendUpper, supertrend[1]) : math.min(supertrendLower, supertrend[1])
+supertrendBuy = close > supertrend
+supertrendSell = close < supertrend
+
+// Donchian Channel
+donchianUpper = ta.highest(high, donchianLen)
+donchianLower = ta.lowest(low, donchianLen)
+inDonchian = close >= donchianLower and close <= donchianUpper
+
+// === CONDITIONS ===
+buyCondition = adx > adxThreshold and rsi >= rsiLow and rsi <= rsiHigh and macdCrossUp and emaCrossUp and supertrendBuy and inDonchian
+sellCondition = adx > adxThreshold and rsi >= rsiLow and rsi <= rsiHigh and macdCrossDown and emaCrossDown and supertrendSell and inDonchian
+
+// === PLOT ===
+plot(emaShort, color=color.blue, title="EMA 9")
+plot(emaLong, color=color.orange, title="EMA 21")
+plotshape(buyCondition, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.tiny, title="Buy Signal")
+plotshape(sellCondition, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.tiny, title="Sell Signal")
