@@ -3,7 +3,13 @@ package com.kotak.neo.client.validation;
 import com.kotak.neo.client.Settings;
 import com.kotak.neo.client.exceptions.ApiValueError;
 
+import java.util.Set;
+
 public final class Validators {
+    private static final Set<String> VALIDITY_VALUES = Set.of("DAY", "IOC");
+    private static final Set<String> PLACE_ORDER_TT = Set.of("B", "S", "Buy", "Sell");
+    private static final Set<String> MARGIN_TT = Set.of("B", "S", "Buy", "Sell", "sell", "buy");
+
     private Validators() {}
 
     private static void nonEmpty(String val, String name) {
@@ -28,9 +34,10 @@ public final class Validators {
             throw new ApiValueError("invalid product: " + product);
         if (!Settings.ORDER_TYPE.containsKey(orderType))
             throw new ApiValueError("invalid order_type: " + orderType);
-        String tt = transactionType.toUpperCase();
-        if (!tt.equals("B") && !tt.equals("S") && !tt.equals("BUY") && !tt.equals("SELL"))
-            throw new ApiValueError("transaction_type must be B/S");
+        if (!VALIDITY_VALUES.contains(validity))
+            throw new ApiValueError("Invalid validity. Allowed values are DAY, IOC.");
+        if (!PLACE_ORDER_TT.contains(transactionType))
+            throw new ApiValueError("Invalid transaction type. Allowed values are B or Buy, S or Sell.");
     }
 
     public static void validateCancelOrder(String orderId) { nonEmpty(orderId, "order_id"); }
@@ -48,6 +55,12 @@ public final class Validators {
         nonEmpty(transactionType, "transaction_type");
         if (!Settings.EXCHANGE_SEGMENT.containsKey(exchangeSegment))
             throw new ApiValueError("invalid exchange_segment: " + exchangeSegment);
+        if (!Settings.PRODUCT.containsKey(product))
+            throw new ApiValueError("invalid product: " + product);
+        if (!Settings.ORDER_TYPE.containsKey(orderType))
+            throw new ApiValueError("invalid order_type: " + orderType);
+        if (!MARGIN_TT.contains(transactionType))
+            throw new ApiValueError("Invalid transaction type. Allowed values are B or Buy, S or Sell.");
     }
 
     public static void validateLimits(String segment, String exchange, String product) {

@@ -91,7 +91,10 @@ public class RestClient {
                 r.data = obj;
             }
             return r;
-        } catch (IOException | InterruptedException e) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ApiException(0, "http error", e.getMessage());
+        } catch (IOException e) {
             throw new ApiException(0, "http error", e.getMessage());
         }
     }

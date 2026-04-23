@@ -25,6 +25,7 @@ public class RestClient
         object? body = null,
         CancellationToken ct = default)
     {
+        var m = method.ToUpperInvariant();
         headers ??= new Dictionary<string, string>();
         if (!headers.ContainsKey("Content-Type"))
             headers["Content-Type"] = "application/json";
@@ -36,10 +37,10 @@ public class RestClient
             url += (url.Contains('?') ? "&" : "?") + pairs;
         }
 
-        var request = new HttpRequestMessage(new HttpMethod(method.ToUpperInvariant()), url);
+        var request = new HttpRequestMessage(new HttpMethod(m), url);
         var contentType = headers["Content-Type"];
 
-        if (method is "POST" or "PUT" or "PATCH" or "DELETE")
+        if (m is "POST" or "PUT" or "PATCH" or "DELETE")
         {
             if (contentType.Contains("json", StringComparison.OrdinalIgnoreCase))
             {

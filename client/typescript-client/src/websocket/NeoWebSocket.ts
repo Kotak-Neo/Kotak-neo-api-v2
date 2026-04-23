@@ -12,6 +12,14 @@ import { REQ_TYPE_VALUES } from "../settings";
 import { Instrument, MessageCallback, ErrorCallback, VoidCallback } from "../types";
 import { decodeBinaryFrame } from "./hsWebSocketCodec";
 
+// `ws` delivers message data as `Buffer | ArrayBuffer | Buffer[]`. Normalize to Buffer
+// so downstream codec sees a consistent type.
+function toBuffer(data: WebSocket.RawData): Buffer {
+  if (Buffer.isBuffer(data)) return data;
+  if (Array.isArray(data)) return Buffer.concat(data);
+  return Buffer.from(data as ArrayBuffer);
+}
+
 /**
  * NeoWebSocket manages the market-data and order-feed WebSocket connections.
  * Mirrors the Python NeoWebSocket class.
@@ -85,7 +93,7 @@ export class NeoWebSocket {
         this.onOpen?.("market socket opened");
         resolve();
       });
-      ws.on("message", (data) => this.handleMarketMessage(data as Buffer));
+      ws.on("message", (data) => this.handleMarketMessage(toBuffer(data)));
       ws.on("error", (err) => {
         this.marketOpen = false;
         this.onError?.(err);
@@ -122,7 +130,7 @@ export class NeoWebSocket {
         this.onOpen?.("order feed opened");
         resolve();
       });
-      ws.on("message", (data) => this.handleOrderMessage(data as Buffer));
+      ws.on("message", (data) => this.handleOrderMessage(toBuffer(data)));
       ws.on("error", (err) => {
         this.orderOpen = false;
         this.onError?.(err);

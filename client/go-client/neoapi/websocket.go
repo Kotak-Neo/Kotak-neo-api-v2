@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -17,6 +18,10 @@ type Instrument struct {
 
 // NeoWebSocket manages the two streaming connections (market data + order feed).
 // It mirrors the public shape of the Python NeoWebSocket class.
+//
+// marketOpen / orderOpen are accessed from multiple goroutines (read loops,
+// heartbeat tickers, external callers) so they must go through atomic.Bool
+// to keep the race detector happy.
 type NeoWebSocket struct {
 	sid         string
 	token       string
@@ -24,8 +29,8 @@ type NeoWebSocket struct {
 	dataCenter  string
 	marketConn  *websocket.Conn
 	orderConn   *websocket.Conn
-	marketOpen  bool
-	orderOpen   bool
+	marketOpen  atomic.Bool
+	orderOpen   atomic.Bool
 	subList     []Instrument
 	quotesIndex bool
 
@@ -57,7 +62,7 @@ func (w *NeoWebSocket) GetLiveFeed(instruments []Instrument, isIndex, isDepth bo
 	w.subList = append(w.subList, instruments...)
 	w.mu.Unlock()
 
-	if !w.marketOpen {
+	if !w.marketOpen.Load() {
 		if err := w.openMarketConn(); err != nil {
 			return err
 		}
@@ -87,7 +92,7 @@ func (w *NeoWebSocket) UnsubscribeList(instruments []Instrument, isIndex, isDept
 
 // GetOrderFeed opens the order-feed socket.
 func (w *NeoWebSocket) GetOrderFeed() error {
-	if w.orderOpen {
+	if w.orderOpen.Load() {
 		return nil
 	}
 	return w.openOrderConn()
@@ -99,7 +104,7 @@ func (w *NeoWebSocket) openMarketConn() error {
 		return err
 	}
 	w.marketConn = conn
-	w.marketOpen = true
+	w.marketOpen.Store(true)
 
 	handshake := map[string]any{"type": "cn", "Authorization": w.token, "Sid": w.sid}
 	if err := w.sendMarket(handshake); err != nil {
@@ -132,7 +137,7 @@ func (w *NeoWebSocket) openOrderConn() error {
 		return err
 	}
 	w.orderConn = conn
-	w.orderOpen = true
+	w.orderOpen.Store(true)
 
 	handshake := map[string]any{
 		"type": "CONNECTION", "Authorization": w.token, "Sid": w.sid, "source": "WEB",
@@ -160,10 +165,10 @@ func (w *NeoWebSocket) sendMarket(payload map[string]any) error {
 }
 
 func (w *NeoWebSocket) readMarket() {
-	for w.marketOpen {
+	for w.marketOpen.Load() {
 		_, msg, err := w.marketConn.ReadMessage()
 		if err != nil {
-			w.marketOpen = false
+			w.marketOpen.Store(false)
 			if w.OnError != nil {
 				w.OnError(err)
 			}
@@ -188,10 +193,10 @@ func (w *NeoWebSocket) readMarket() {
 }
 
 func (w *NeoWebSocket) readOrder() {
-	for w.orderOpen {
+	for w.orderOpen.Load() {
 		_, msg, err := w.orderConn.ReadMessage()
 		if err != nil {
-			w.orderOpen = false
+			w.orderOpen.Store(false)
 			if w.OnError != nil {
 				w.OnError(err)
 			}
@@ -212,7 +217,7 @@ func (w *NeoWebSocket) marketHeartbeat() {
 	ticker := time.NewTicker(29 * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
-		if !w.marketOpen {
+		if !w.marketOpen.Load() {
 			return
 		}
 		_ = w.sendMarket(map[string]any{"type": "hb"})
@@ -223,7 +228,7 @@ func (w *NeoWebSocket) orderHeartbeat() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
-		if !w.orderOpen {
+		if !w.orderOpen.Load() {
 			return
 		}
 		buf, _ := json.Marshal(map[string]any{"type": "HB"})
@@ -235,11 +240,11 @@ func (w *NeoWebSocket) orderHeartbeat() {
 func (w *NeoWebSocket) Close() {
 	if w.marketConn != nil {
 		_ = w.marketConn.Close()
-		w.marketOpen = false
+		w.marketOpen.Store(false)
 	}
 	if w.orderConn != nil {
 		_ = w.orderConn.Close()
-		w.orderOpen = false
+		w.orderOpen.Store(false)
 	}
 }
 

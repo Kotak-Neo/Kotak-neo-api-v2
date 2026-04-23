@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -32,7 +33,13 @@ public class NeoWebSocket {
 
     private WebSocketClient marketClient;
     private WebSocketClient orderClient;
-    private final ScheduledExecutorService heartbeatPool = Executors.newScheduledThreadPool(2);
+    private final ScheduledExecutorService heartbeatPool = Executors.newScheduledThreadPool(2, r -> {
+        Thread t = new Thread(r, "neo-ws-heartbeat");
+        t.setDaemon(true);
+        return t;
+    });
+    private volatile ScheduledFuture<?> marketHeartbeat;
+    private volatile ScheduledFuture<?> orderHeartbeat;
 
     public Consumer<String> onOpen;
     public Consumer<Object> onMessage;
@@ -99,7 +106,7 @@ public class NeoWebSocket {
                 handshake.put("Sid", sid);
                 send(GSON.toJson(handshake));
                 if (onOpen != null) onOpen.accept("market socket opened");
-                heartbeatPool.scheduleAtFixedRate(() -> {
+                marketHeartbeat = heartbeatPool.scheduleAtFixedRate(() -> {
                     if (isOpen()) send("{\"type\":\"hb\"}");
                 }, 29, 29, TimeUnit.SECONDS);
             }
@@ -120,13 +127,31 @@ public class NeoWebSocket {
                 }
             }
             @Override public void onClose(int code, String reason, boolean remote) {
+                cancelMarketHeartbeat();
                 if (onClose != null) onClose.accept("market socket closed");
             }
             @Override public void onError(Exception ex) {
+                cancelMarketHeartbeat();
                 if (onError != null) onError.accept(ex);
             }
         };
         marketClient.connectBlocking();
+    }
+
+    private void cancelMarketHeartbeat() {
+        ScheduledFuture<?> f = marketHeartbeat;
+        if (f != null) {
+            f.cancel(false);
+            marketHeartbeat = null;
+        }
+    }
+
+    private void cancelOrderHeartbeat() {
+        ScheduledFuture<?> f = orderHeartbeat;
+        if (f != null) {
+            f.cancel(false);
+            orderHeartbeat = null;
+        }
     }
 
     private void openOrder() throws Exception {
@@ -150,7 +175,7 @@ public class NeoWebSocket {
                 handshake.put("source", "WEB");
                 send(GSON.toJson(handshake));
                 if (onOpen != null) onOpen.accept("order feed opened");
-                heartbeatPool.scheduleAtFixedRate(() -> {
+                orderHeartbeat = heartbeatPool.scheduleAtFixedRate(() -> {
                     if (isOpen()) send("{\"type\":\"HB\"}");
                 }, 30, 30, TimeUnit.SECONDS);
             }
@@ -167,9 +192,11 @@ public class NeoWebSocket {
                 }
             }
             @Override public void onClose(int code, String reason, boolean remote) {
+                cancelOrderHeartbeat();
                 if (onClose != null) onClose.accept("order feed closed");
             }
             @Override public void onError(Exception ex) {
+                cancelOrderHeartbeat();
                 if (onError != null) onError.accept(ex);
             }
         };

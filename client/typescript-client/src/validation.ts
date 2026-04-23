@@ -14,6 +14,10 @@ function nonEmpty(val: unknown, name: string): void {
   }
 }
 
+const VALIDITY_VALUES = ["DAY", "IOC"];
+const PLACE_ORDER_TT = ["B", "S", "Buy", "Sell"];
+const MARGIN_TT = ["B", "S", "Buy", "Sell", "sell", "buy"];
+
 export function validatePlaceOrder(p: {
   exchange_segment: string;
   product: string;
@@ -30,9 +34,10 @@ export function validatePlaceOrder(p: {
   if (!(p.product in PRODUCT)) throw new ApiValueError(`invalid product: ${p.product}`);
   if (!(p.order_type in ORDER_TYPE))
     throw new ApiValueError(`invalid order_type: ${p.order_type}`);
-  const tt = p.transaction_type.toUpperCase();
-  if (!["B", "S", "BUY", "SELL"].includes(tt))
-    throw new ApiValueError("transaction_type must be B/S");
+  if (!VALIDITY_VALUES.includes(p.validity))
+    throw new ApiValueError("Invalid validity. Allowed values are DAY, IOC.");
+  if (!PLACE_ORDER_TT.includes(p.transaction_type))
+    throw new ApiValueError("Invalid transaction type. Allowed values are B or Buy, S or Sell.");
 }
 
 export function validateCancelOrder(orderId: string): void {
@@ -55,6 +60,12 @@ export function validateMargin(p: {
   Object.entries(p).forEach(([k, v]) => nonEmpty(v, k));
   if (!(p.exchange_segment in EXCHANGE_SEGMENT))
     throw new ApiValueError(`invalid exchange_segment: ${p.exchange_segment}`);
+  if (!(p.product in PRODUCT))
+    throw new ApiValueError(`invalid product: ${p.product}`);
+  if (!(p.order_type in ORDER_TYPE))
+    throw new ApiValueError(`invalid order_type: ${p.order_type}`);
+  if (!MARGIN_TT.includes(p.transaction_type))
+    throw new ApiValueError("Invalid transaction type. Allowed values are B or Buy, S or Sell.");
 }
 
 export function validateLimits(segment: string, exchange: string, product: string): void {

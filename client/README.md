@@ -11,7 +11,7 @@ This folder ships four language ports of the reference Python SDK (`neo_api_clie
 
 ## Feature parity matrix
 
-All four clients expose the same methods that the Python SDK does. Method names are adjusted to the idiom of each language (`snake_case` in Python/TypeScript, `camelCase` in Java, `PascalCase` in Go/.NET).
+All four clients expose the same methods that the Python SDK does. Method names are adjusted to the idiom of each language (`snake_case` in Python, `camelCase` in TypeScript/Java, `PascalCase` in Go/.NET).
 
 
 

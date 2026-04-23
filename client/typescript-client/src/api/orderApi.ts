@@ -1,4 +1,5 @@
 import { Configuration } from "../configuration";
+import { ApiValueError } from "../exceptions";
 import { RestClient, Response } from "../rest";
 import { EXCHANGE_SEGMENT, ORDER_SOURCE, ORDER_TYPE, PRODUCT } from "../settings";
 import { PlaceOrderRequest, ModifyOrderRequest } from "../types";
@@ -104,7 +105,7 @@ export class OrderApi {
   }
 
   async modifyOrder(r: ModifyOrderRequest, bookFetch: () => Promise<Response>): Promise<Response> {
-    if (!r.order_id) throw new Error("order_id is mandatory");
+    if (!r.order_id) throw new ApiValueError("order_id is mandatory");
     const body: Record<string, any> = {
       tk: r.instrument_token,
       mp: r.market_protection ?? "0",

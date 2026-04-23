@@ -8,6 +8,12 @@ import (
 // Response is the loose response type — mirrors Python dict.
 type Response map[string]any
 
+var (
+	validityValues = []string{"DAY", "IOC"}
+	placeOrderTT   = []string{"B", "S", "Buy", "Sell"}
+	marginTT       = []string{"B", "S", "Buy", "Sell", "sell", "buy"}
+)
+
 func nonEmpty(val, name string) error {
 	if strings.TrimSpace(val) == "" {
 		return &APIValueError{Msg: fmt.Sprintf("%s is mandatory", name)}
@@ -35,9 +41,11 @@ func ValidatePlaceOrder(exchangeSegment, product, price, orderType, quantity, va
 	if _, ok := OrderType[orderType]; !ok {
 		return &APIValueError{Msg: "invalid order_type: " + orderType}
 	}
-	tt := strings.ToUpper(transactionType)
-	if tt != "B" && tt != "S" && tt != "BUY" && tt != "SELL" {
-		return &APIValueError{Msg: "transaction_type must be B/S"}
+	if !contains(validityValues, validity) {
+		return &APIValueError{Msg: "Invalid validity. Allowed values are DAY, IOC."}
+	}
+	if !contains(placeOrderTT, transactionType) {
+		return &APIValueError{Msg: "Invalid transaction type. Allowed values are B or Buy, S or Sell."}
 	}
 	return nil
 }
@@ -52,7 +60,7 @@ func ValidateOrderHistory(orderID string) error {
 	return nonEmpty(orderID, "order_id")
 }
 
-// ValidateMargin — basic field presence check.
+// ValidateMargin — mirrors req_data_validation.margin_validation allow-lists.
 func ValidateMargin(exchangeSegment, price, orderType, product, quantity, instrumentToken, transactionType string) error {
 	for k, v := range map[string]string{
 		"exchange_segment": exchangeSegment, "price": price, "order_type": orderType,
@@ -65,6 +73,15 @@ func ValidateMargin(exchangeSegment, price, orderType, product, quantity, instru
 	}
 	if _, ok := ExchangeSegment[exchangeSegment]; !ok {
 		return &APIValueError{Msg: "invalid exchange_segment: " + exchangeSegment}
+	}
+	if _, ok := Product[product]; !ok {
+		return &APIValueError{Msg: "invalid product: " + product}
+	}
+	if _, ok := OrderType[orderType]; !ok {
+		return &APIValueError{Msg: "invalid order_type: " + orderType}
+	}
+	if !contains(marginTT, transactionType) {
+		return &APIValueError{Msg: "Invalid transaction type. Allowed values are B or Buy, S or Sell."}
 	}
 	return nil
 }
