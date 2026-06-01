@@ -17,10 +17,10 @@ Once you have created an APP and registered TOTP you can start using the below S
 1. Input parameters
 """
 # Get these credentials from Kotak Neo API Dashboard
-consumer_key = "YOUR_TOKEN_HERE"  # Token generated in API Dashboard
-mobile_number = "YOUR_REGISTERED_MOBILE"  # Mobile number registered with Kotak
-mpin = "YOUR_6_DIGIT_MPIN"  # Your 6-digit trading PIN
-totp_secret = "YOUR_TOTP_SECRET"  # Secret key for TOTP (if storing locally)
+consumer_key = "YOUR_TOKEN_HERE"           # Token generated in API Dashboard
+mobile_number = "YOUR_REGISTERED_MOBILE"   # Mobile number registered with Kotak (with country code, e.g., +91XXXXXXXXXX)
+ucc = "YOUR_UCC_CODE"                      # Unique Client Code (5 characters, e.g., AB123)
+mpin = "YOUR_6_DIGIT_MPIN"                # Your 6-digit trading PIN
 
 # Environment (use 'prod' for production)
 environment = "prod"
@@ -30,42 +30,55 @@ environment = "prod"
 """
 try:
     client = NeoAPI(environment=environment, consumer_key=consumer_key)
-    print("NeoAPI client initialized successfully")
+    print("✓ NeoAPI client initialized successfully")
 except Exception as e:
-    print(f"Error initializing NeoAPI client: {e}")
+    print(f"✗ Error initializing NeoAPI client: {e}")
     exit()
 
 """
-3. Generate TOTP Code (if you have the secret key stored)
-   If not, manually enter the 6-digit code from Google Authenticator
+3. Step 1: TOTP Login - Get TOTP code from Google Authenticator
 """
-# Option 1: If you have pyotp installed
-# import pyotp
-# totp = pyotp.TOTP(totp_secret)
-# current_totp = totp.now()
-
-# Option 2: Manually enter TOTP
 current_totp = input("Enter 6-digit TOTP code from Google Authenticator: ")
 
 """
-4. Login to Generate Session Token
+4. Step 2: Call totp_login with mobile_number, UCC, and TOTP
 """
 try:
-    response = client.login(
+    print("\n--- Attempting TOTP Login ---")
+    totp_login_response = client.totp_login(
         mobile_number=mobile_number,
-        totp=current_totp,
-        mpin=mpin
+        ucc=ucc,
+        totp=current_totp
     )
     
-    print("Login Response:", response)
+    print("TOTP Login Response:", totp_login_response)
     
-    # Extract session tokens from response
-    if "success" in response and response["success"]:
-        data = response.get("data", {})
+    # Check if login was successful
+    if "success" in totp_login_response and totp_login_response["success"]:
+        print("✓ TOTP Login Successful!")
+    else:
+        error = totp_login_response.get("message", "Unknown error")
+        print(f"✗ TOTP Login Failed: {error}")
+        exit()
+        
+except Exception as e:
+    print(f"✗ Error during TOTP login: {e}")
+    exit()
+
+"""
+5. Step 3: Validate TOTP with MPIN
+"""
+try:
+    print("\n--- Attempting TOTP Validation with MPIN ---")
+    totp_validate_response = client.totp_validate(mpin=mpin)
+    
+    print("TOTP Validate Response:", totp_validate_response)
+    
+    # Check if validation was successful
+    if "success" in totp_validate_response and totp_validate_response["success"]:
+        data = totp_validate_response.get("data", {})
         trading_token = data.get("token")
-        trading_sid = data.get("sid")
-        base_url = data.get("base_url")
-        client_code = data.get("client_code")  # Your UCC
+        client_code = data.get("ucc", ucc)
         
         print(f"\n✓ Login Successful!")
         print(f"Trading Token: {trading_token}")
@@ -76,29 +89,34 @@ try:
             file.write(trading_token)
         with open("kotak_client_code.txt", 'w') as file:
             file.write(client_code)
-        with open("kotak_trading_sid.txt", 'w') as file:
-            file.write(trading_sid)
-        with open("kotak_base_url.txt", 'w') as file:
-            file.write(base_url)
+        with open("kotak_consumer_key.txt", 'w') as file:
+            file.write(consumer_key)
             
-        print("\n✓ Credentials saved to files")
+        print("\n✓ Credentials saved to files:")
+        print("  - kotak_trading_token.txt")
+        print("  - kotak_client_code.txt")
+        print("  - kotak_consumer_key.txt")
         
     else:
-        error = response.get("message", "Unknown error")
-        print(f"✗ Login Failed: {error}")
+        error = totp_validate_response.get("message", "Unknown error")
+        print(f"✗ TOTP Validation Failed: {error}")
         exit()
         
 except Exception as e:
-    print(f"✗ Error during login: {e}")
+    print(f"✗ Error during TOTP validation: {e}")
     exit()
 
 """
-5. Now you can use the client for trading and data API calls
+6. Now you can use the client for trading and data API calls
    Example: Fetch holdings, place orders, etc.
 """
-print("\n--- You can now use the NeoAPI client for trading ---")
-print("Example usage:")
+print("\n" + "="*60)
+print("--- You can now use the NeoAPI client for trading ---")
+print("="*60)
+print("\nExample usage:")
 print("  - client.place_order(...)")
 print("  - client.cancel_order(...)")
-print("  - client.fetch_holdings(...)")
-print("  - client.fetch_orderbook(...)")
+print("  - client.holdings()")
+print("  - client.positions()")
+print("  - client.order_report()")
+print("  - client.trade_report()")
