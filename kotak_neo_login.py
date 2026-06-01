@@ -18,7 +18,7 @@ Once you have created an APP and registered TOTP you can start using the below S
 """
 # Get these credentials from Kotak Neo API Dashboard
 consumer_key = "YOUR_TOKEN_HERE"           # Token generated in API Dashboard
-mobile_number = "YOUR_REGISTERED_MOBILE"   # Mobile number registered with Kotak (with country code, e.g., +91XXXXXXXXXX)
+mobile_number = "YOUR_REGISTERED_MOBILE"   # Mobile number registered with Kotak (10 digits, e.g., 9876543210)
 ucc = "YOUR_UCC_CODE"                      # Unique Client Code (5 characters, e.g., AB123)
 mpin = "YOUR_6_DIGIT_MPIN"                # Your 6-digit trading PIN
 
@@ -51,14 +51,27 @@ try:
         totp=current_totp
     )
     
-    print("TOTP Login Response:", totp_login_response)
+    print("TOTP Login Response received...")
     
-    # Check if login was successful
-    if "success" in totp_login_response and totp_login_response["success"]:
-        print("✓ TOTP Login Successful!")
+    # Check if login was successful - look for 'data' key
+    if totp_login_response and "data" in totp_login_response:
+        data = totp_login_response.get("data", {})
+        status = data.get("status", "")
+        
+        if status == "success" or "token" in data:
+            print("✓ TOTP Login Successful!")
+            greeting_name = data.get("greetingName", "User")
+            print(f"Welcome, {greeting_name}!")
+        else:
+            error = data.get("message", "Unknown error")
+            print(f"✗ TOTP Login Failed: {error}")
+            exit()
+    elif "error" in totp_login_response:
+        error_msg = totp_login_response.get("error", "Unknown error")
+        print(f"✗ TOTP Login Failed: {error_msg}")
+        exit()
     else:
-        error = totp_login_response.get("message", "Unknown error")
-        print(f"✗ TOTP Login Failed: {error}")
+        print(f"✗ Unexpected response format: {totp_login_response}")
         exit()
         
 except Exception as e:
@@ -72,34 +85,47 @@ try:
     print("\n--- Attempting TOTP Validation with MPIN ---")
     totp_validate_response = client.totp_validate(mpin=mpin)
     
-    print("TOTP Validate Response:", totp_validate_response)
+    print("TOTP Validate Response received...")
     
     # Check if validation was successful
-    if "success" in totp_validate_response and totp_validate_response["success"]:
+    if totp_validate_response and "data" in totp_validate_response:
         data = totp_validate_response.get("data", {})
-        trading_token = data.get("token")
-        client_code = data.get("ucc", ucc)
+        status = data.get("status", "")
         
-        print(f"\n✓ Login Successful!")
-        print(f"Trading Token: {trading_token}")
-        print(f"Client Code: {client_code}")
-        
-        # Save credentials to files for later use
-        with open("kotak_trading_token.txt", 'w') as file:
-            file.write(trading_token)
-        with open("kotak_client_code.txt", 'w') as file:
-            file.write(client_code)
-        with open("kotak_consumer_key.txt", 'w') as file:
-            file.write(consumer_key)
+        if status == "success" or "token" in data:
+            trading_token = data.get("token", "")
+            client_code = data.get("ucc", ucc)
+            sid = data.get("sid", "")
             
-        print("\n✓ Credentials saved to files:")
-        print("  - kotak_trading_token.txt")
-        print("  - kotak_client_code.txt")
-        print("  - kotak_consumer_key.txt")
-        
+            print(f"\n✓ Login Successful!")
+            print(f"Client Code: {client_code}")
+            print(f"Token received: {trading_token[:50]}...")  # Show first 50 chars
+            
+            # Save credentials to files for later use
+            with open("kotak_trading_token.txt", 'w') as file:
+                file.write(trading_token)
+            with open("kotak_client_code.txt", 'w') as file:
+                file.write(client_code)
+            with open("kotak_consumer_key.txt", 'w') as file:
+                file.write(consumer_key)
+            with open("kotak_session_id.txt", 'w') as file:
+                file.write(sid)
+                
+            print("\n✓ Credentials saved to files:")
+            print("  - kotak_trading_token.txt")
+            print("  - kotak_client_code.txt")
+            print("  - kotak_consumer_key.txt")
+            print("  - kotak_session_id.txt")
+        else:
+            error = data.get("message", "Unknown error")
+            print(f"✗ TOTP Validation Failed: {error}")
+            exit()
+    elif "error" in totp_validate_response:
+        error_msg = totp_validate_response.get("error", "Unknown error")
+        print(f"✗ TOTP Validation Failed: {error_msg}")
+        exit()
     else:
-        error = totp_validate_response.get("message", "Unknown error")
-        print(f"✗ TOTP Validation Failed: {error}")
+        print(f"✗ Unexpected response format: {totp_validate_response}")
         exit()
         
 except Exception as e:
@@ -120,3 +146,4 @@ print("  - client.holdings()")
 print("  - client.positions()")
 print("  - client.order_report()")
 print("  - client.trade_report()")
+print("\nYour credentials have been saved and can be reused for future sessions.")
