@@ -18,7 +18,7 @@ class PortfolioAPI(object):
         try:
             portfolio_report = self.rest_client.request(
                 url=URL, method='GET',
-                query_params=params,
+                query_params=None,
                 headers=header_params
             )
             return portfolio_report.json()
