@@ -17,10 +17,10 @@ Once you have created an APP and registered TOTP you can start using the below S
 1. Input parameters
 """
 # Get these credentials from Kotak Neo API Dashboard
-consumer_key = "YOUR_TOKEN_HERE"           # Token generated in API Dashboard
-mobile_number = "YOUR_REGISTERED_MOBILE"   # Mobile number registered with Kotak (10 digits, e.g., 9876543210)
-ucc = "YOUR_UCC_CODE"                      # Unique Client Code (5 characters, e.g., AB123)
-mpin = "YOUR_6_DIGIT_MPIN"                # Your 6-digit trading PIN
+consumer_key = "fb564892-aecf-42ec-95fd-d5e1cc2477b7"           # Token generated in API Dashboard
+mobile_number = "+919929936431"   # Mobile number registered with Kotak (10 digits, e.g., 9876543210)
+ucc = "V77SV"                      # Unique Client Code (5 characters, e.g., AB123)
+mpin = "975200"                # Your 6-digit trading PIN
 
 # Environment (use 'prod' for production)
 environment = "prod"
